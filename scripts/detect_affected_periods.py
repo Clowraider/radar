@@ -144,13 +144,15 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def main(argv=None):
-    load_env_file()
+def main(argv=None, conn=None):
     args = parse_args(argv)
     if not args.full and args.lookback_hours <= 0:
         raise RuntimeError("--lookback-hours debe ser mayor a 0")
 
-    conn = psycopg2.connect(**db_config("RADAR"))
+    own_conn = conn is None
+    if own_conn:
+        load_env_file()
+        conn = psycopg2.connect(**db_config("RADAR"))
     run_id = None
     total_rows = 0
     try:
@@ -190,7 +192,8 @@ def main(argv=None):
                 conn.rollback()
         raise
     finally:
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 if __name__ == "__main__":

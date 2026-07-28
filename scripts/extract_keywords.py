@@ -728,7 +728,7 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def main(argv=None):
+def main(argv=None, conn=None, nlp=None, yake_extractor=None):
     args = parse_args(argv)
     if args.limit_news is not None and args.limit_news <= 0:
         raise RuntimeError("--limit-news debe ser mayor a 0")
@@ -739,9 +739,11 @@ def main(argv=None):
     if args.limit_news is not None and not args.period:
         raise RuntimeError("--limit-news solo se permite con --period para smoke tests")
 
-    psycopg2 = import_required("psycopg2", "psycopg2-binary")
-    load_env_file()
-    conn = psycopg2.connect(**db_config("RADAR"))
+    own_conn = conn is None
+    if own_conn:
+        psycopg2 = import_required("psycopg2", "psycopg2-binary")
+        load_env_file()
+        conn = psycopg2.connect(**db_config("RADAR"))
 
     run_id = None
     total_news = 0
@@ -749,15 +751,19 @@ def main(argv=None):
     try:
         acquire_script_lock(conn, "extract_keywords")
 
-        yake = import_required("yake")
-        spacy = import_required("spacy")
         entries, omitted_keywords = load_keyword_config(args.dictionary)
         alias_map = build_alias_map(entries)
         print(f"dictionary entries: {len(entries)}")
         print(f"omitted keywords: {len(omitted_keywords)}")
-        print(f"loading spaCy model: {args.spacy_model}")
-        nlp = spacy.load(args.spacy_model)
-        yake_extractor = yake.KeywordExtractor(lan="es", n=3, dedupLim=0.9, top=args.yake_max_keywords)
+
+        if nlp is None or yake_extractor is None:
+            yake = import_required("yake")
+            spacy = import_required("spacy")
+            if nlp is None:
+                print(f"loading spaCy model: {args.spacy_model}")
+                nlp = spacy.load(args.spacy_model)
+            if yake_extractor is None:
+                yake_extractor = yake.KeywordExtractor(lan="es", n=3, dedupLim=0.9, top=args.yake_max_keywords)
 
         full_run = bool(args.full)
         run_id = create_run(conn, full=full_run, notes=args.notes or "extract keywords", dry_run=args.dry_run)
@@ -806,7 +812,8 @@ def main(argv=None):
                 conn.rollback()
         raise
     finally:
-        conn.close()
+        if own_conn:
+            conn.close()
 
 
 if __name__ == "__main__":

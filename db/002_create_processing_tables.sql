@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS radar_affected_periods (
     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
     month_start DATE NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'skipped')),
+        -- 'consumed' means aggregate tables for the month have been built.
+        CHECK (status IN ('pending', 'processing', 'completed', 'consumed', 'failed', 'skipped')),
     reason VARCHAR(60) NOT NULL DEFAULT 'detected',
     rows_detected INTEGER NOT NULL DEFAULT 0,
     notes TEXT,

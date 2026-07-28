@@ -1,0 +1,24 @@
+# Local Pi runtime state
+.atl/
+.pi/
+
+# Secrets
+.env
+.env.*
+!.env.example
+web/radar-web.env
+web/radar-web.env.*
+!web/radar-web.env.example
+
+# Node / SvelteKit
+web/node_modules/
+web/build/
+web/.svelte-kit/
+web/.vite/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/

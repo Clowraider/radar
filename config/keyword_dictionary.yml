@@ -1,0 +1,182 @@
+# Radar TRH canonical keyword dictionary
+#
+# Version this file in git and keep it editable. Dictionary changes can alter
+# keyword matches, so run `scripts/extract_keywords.py --full --reset-period`
+# after significant edits.
+#
+# Fields:
+# - canonical: navigable/display name used by Radar
+# - type: place | person | organization | topic | event | category
+# - category: optional grouping for future UI filters
+# - priority: editorial boost for ranking ties; higher wins
+# - enabled: false disables the entry without deleting it
+# - aliases: phrases that should normalize to `canonical`
+# - omitted_keywords: phrases discarded from automatic extraction
+
+version: 1
+language: es
+
+# Phrases to discard from automatic extraction. Use this for boilerplate,
+# calls to action, buttons, and generic website text that can appear often
+# but is not a real news topic.
+omitted_keywords:
+  - "click"
+  - "clic"
+  - "unirte al"
+  - "unirse al"
+  - "leer más"
+  - "ver más"
+  - "seguir leyendo"
+  - "compartir"
+  - "comentarios"
+  - "whatsapp"
+  - "facebook"
+  - "instagram"
+  - "twitter"
+  - "HACÉ"
+  - "HACÉ CLICK"
+  - "Sin embargo"
+  - "Mira"
+  - "Mirá"
+  - "Lee"
+  - "Te recomendamos"
+  - "Sin embargo"
+  - 'Te recomendamos: La "vuelta'
+
+entries:
+  - canonical: "Santiago del Estero"
+    type: "place"
+    category: "territorio"
+    priority: 10
+    enabled: true
+    aliases:
+      - "Santiago del Estero"
+      - "provincia de Santiago del Estero"
+      - "territorio santiagueño"
+
+  - canonical: "La Banda"
+    type: "place"
+    category: "territorio"
+    priority: 9
+    enabled: true
+    aliases:
+      - "La Banda"
+      - "ciudad de La Banda"
+
+  - canonical: "Termas de Río Hondo"
+    type: "place"
+    category: "territorio"
+    priority: 9
+    enabled: true
+    aliases:
+      - "Termas de Río Hondo"
+      - "Las Termas"
+      - "Río Hondo"
+
+  - canonical: "Casa de Gobierno"
+    type: "organization"
+    category: "instituciones"
+    priority: 8
+    enabled: true
+    aliases:
+      - "Casa de Gobierno"
+      - "Gobierno provincial"
+      - "Gobierno de la Provincia"
+
+  - canonical: "Ministerio de Salud"
+    type: "organization"
+    category: "instituciones"
+    priority: 8
+    enabled: true
+    aliases:
+      - "Ministerio de Salud"
+      - "Salud provincial"
+      - "cartera sanitaria"
+
+  - canonical: "Elecciones provinciales"
+    type: "event"
+    category: "política"
+    priority: 8
+    enabled: true
+    aliases:
+      - "elecciones provinciales"
+      - "comicios provinciales"
+      - "campaña electoral"
+
+  - canonical: "Paro docente"
+    type: "topic"
+    category: "educación"
+    priority: 8
+    enabled: true
+    aliases:
+      - "paro docente"
+      - "conflicto docente"
+      - "medida de fuerza docente"
+      - "reclamo docente"
+
+  - canonical: "Transporte público"
+    type: "topic"
+    category: "servicios"
+    priority: 7
+    enabled: true
+    aliases:
+      - "transporte público"
+      - "colectivos"
+      - "servicio de colectivos"
+
+  - canonical: "Violencia de género"
+    type: "topic"
+    category: "seguridad"
+    priority: 7
+    enabled: true
+    aliases:
+      - "violencia de género"
+      - "violencia contra la mujer"
+      - "femicidio"
+      - "femicidios"
+
+  - canonical: "Seguridad vial"
+    type: "topic"
+    category: "seguridad"
+    priority: 6
+    enabled: true
+    aliases:
+      - "seguridad vial"
+      - "accidente de tránsito"
+      - "siniestro vial"
+      - "control vehicular"
+
+  - canonical: "Argentina"
+    type: "topic"
+    category: "seguridad"
+    priority: 6
+    enabled: true
+    aliases:
+      - "la argentina"
+      - "La Argentina"
+
+  - canonical: "Javier Milei"
+    type: "topic"
+    category: "politica"
+    priority: 6
+    enabled: true
+    aliases:
+      - "Milei"
+      - "presidente Milei"
+      - "presidente Javier Milei"
+
+  - canonical: "La Libertad Avanza"
+    type: "topic"
+    category: "politica"
+    priority: 6
+    enabled: true
+    aliases:
+      - "Libertad Avanza"
+
+  - canonical: "Gerardo Zamora"
+    type: "topic"
+    category: "politica"
+    priority: 6
+    enabled: true
+    aliases:
+      - "Zamora"

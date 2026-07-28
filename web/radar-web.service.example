@@ -1,0 +1,53 @@
+# Plantilla de systemd para ejecutar Radar web en un LXC.
+#
+# Esto NO es un archivo de la app.
+# Es una plantilla para que Linux mantenga la web encendida como servicio:
+# - arranca al prender el LXC;
+# - reinicia si se cae;
+# - permite ver estado con systemctl;
+# - permite ver logs con journalctl.
+#
+# Uso típico:
+#   1. Copiar este archivo a /etc/systemd/system/radar-web.service
+#   2. Editar User, Group, WorkingDirectory y EnvironmentFile según tu LXC
+#   3. Ejecutar:
+#        sudo systemctl daemon-reload
+#        sudo systemctl enable --now radar-web
+
+[Unit]
+Description=Radar web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Usuario Linux que ejecutará la app.
+# Cambialo si en tu LXC usás otro usuario.
+User=radar
+Group=radar
+
+# Carpeta donde está la app web ya copiada/instalada.
+# Si trabajás directo en este proyecto, cambiá esta ruta.
+WorkingDirectory=/opt/radar/web
+
+# Archivo con variables como RADAR_DB_HOST, RADAR_DB_USER, PORT, etc.
+# No es obligatorio usar exactamente esta ruta, pero debe existir si dejás esta línea.
+EnvironmentFile=/opt/radar/web/radar-web.env
+
+# Modo producción para Node/SvelteKit.
+Environment=NODE_ENV=production
+
+# Ejecuta la app compilada por `npm run build`.
+# Requiere haber corrido antes:
+#   cd /opt/radar/web
+#   npm install
+#   npm run build
+ExecStart=/usr/bin/node build
+
+# Si la app se cae, systemd la vuelve a levantar.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

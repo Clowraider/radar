@@ -1,0 +1,31 @@
+{
+  "name": "radar-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "HOST=${HOST:-0.0.0.0} PORT=${PORT:-3000} node build"
+  },
+  "dependencies": {
+    "@sveltejs/adapter-node": "^5.5.4",
+    "@sveltejs/kit": "^2.62.0",
+    "@sveltejs/vite-plugin-svelte": "^5.1.0",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1",
+    "svelte": "^5.34.0",
+    "vite": "^6.3.5"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.11",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "cookie": "^0.7.2"
+  }
+}

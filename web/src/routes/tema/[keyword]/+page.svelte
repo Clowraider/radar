@@ -261,12 +261,7 @@
         {#if data.news.length > 0}
           <div class="grid gap-4">
             {#each data.news as article}
-              <a
-                class="group grid gap-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4 transition duration-300 hover:-translate-y-0.5 hover:border-radar-cyan/45 hover:bg-radar-cyan/10 sm:grid-cols-[4.5rem_1fr]"
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              {#snippet articleContent()}
                 <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/60 text-xs uppercase tracking-[0.22em] text-radar-cyan/70">
                   Radar
                 </div>
@@ -279,7 +274,24 @@
                   </div>
                   <p class="text-sm text-slate-400">Abrir noticia original →</p>
                 </div>
-              </a>
+              {/snippet}
+
+              {#if article.url}
+                <a
+                  class="group grid gap-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4 transition duration-300 hover:-translate-y-0.5 hover:border-radar-cyan/45 hover:bg-radar-cyan/10 sm:grid-cols-[4.5rem_1fr]"
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {@render articleContent()}
+                </a>
+              {:else}
+                <div
+                  class="group grid gap-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-[4.5rem_1fr]"
+                >
+                  {@render articleContent()}
+                </div>
+              {/if}
             {/each}
           </div>
         {:else}

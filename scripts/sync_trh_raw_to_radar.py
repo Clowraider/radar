@@ -48,7 +48,7 @@ def build_source_query(full=False):
             url_imagen,
             fecha_publicacion,
             fecha_extraccion,
-            embedding::text AS embedding
+            embedding
         FROM noticias_historico
         WHERE noticia_hash IS NOT NULL
           AND url_original IS NOT NULL

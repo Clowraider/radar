@@ -13,12 +13,7 @@ Modes:
 """
 
 import argparse
-import os
-import re
 import sys
-import unicodedata
-import zlib
-from datetime import date
 from pathlib import Path
 
 import psycopg2
@@ -27,63 +22,18 @@ import psycopg2
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = PROJECT_ROOT / ".env"
 
+sys.path.insert(0, str(PROJECT_ROOT))
 
-class AlreadyRunning(RuntimeError):
-    pass
+from radar_common import (
+    AlreadyRunning,
+    acquire_script_lock,
+    db_config,
+    env_int,
+    load_env_file,
+    month_bounds,
+    month_start_from_string,
+)
 
-
-def acquire_script_lock(conn, name):
-    key = zlib.crc32(f"radar_trh:{name}".encode("utf-8")) & 0x7FFFFFFF
-    with conn.cursor() as cur:
-        cur.execute("SELECT pg_try_advisory_lock(%s)", (key,))
-        acquired = cur.fetchone()[0]
-    if not acquired:
-        raise AlreadyRunning(f"{name}: ya hay otra ejecución activa; saliendo sin hacer cambios")
-
-
-def load_env_file(path=ENV_PATH):
-    if not path.exists():
-        return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-def env_int(name, default):
-    try:
-        return int(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        return default
-
-
-def db_config(prefix="RADAR"):
-    password = os.getenv(f"{prefix}_DB_PASSWORD")
-    if not password:
-        raise RuntimeError(f"Falta {prefix}_DB_PASSWORD en .env")
-    return {
-        "host": os.getenv(f"{prefix}_DB_HOST", "127.0.0.1"),
-        "port": env_int(f"{prefix}_DB_PORT", 5432),
-        "dbname": os.getenv(f"{prefix}_DB_NAME"),
-        "user": os.getenv(f"{prefix}_DB_USER", "postgres"),
-        "password": password,
-    }
-
-
-def month_start_from_string(value):
-    if not re.match(r"^\d{4}-\d{2}$", value or ""):
-        raise argparse.ArgumentTypeError("period must use YYYY-MM format")
-    year, month = map(int, value.split("-"))
-    if not 1 <= month <= 12:
-        raise argparse.ArgumentTypeError("month must be between 01 and 12")
-    return date(year, month, 1)
-
-
-def month_bounds(month_start):
-    next_month = date(month_start.year + (month_start.month // 12), (month_start.month % 12) + 1, 1)
-    return month_start, next_month
 
 
 def create_run(conn, *, full, notes):

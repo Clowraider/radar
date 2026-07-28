@@ -17,16 +17,12 @@ Dictionary changes can affect all historical matches; run with --full and
 """
 
 import argparse
-import calendar
 import importlib
-import os
 import re
 import sys
 import unicodedata
-import zlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 
@@ -36,18 +32,17 @@ DICTIONARY_PATH = PROJECT_ROOT / "config" / "keyword_dictionary.yml"
 DEFAULT_SPACY_MODEL = "es_core_news_lg"
 DEFAULT_MAX_TEXT_CHARS = 2500
 
+sys.path.insert(0, str(PROJECT_ROOT))
 
-class AlreadyRunning(RuntimeError):
-    pass
-
-
-def acquire_script_lock(conn, name):
-    key = zlib.crc32(f"radar_trh:{name}".encode("utf-8")) & 0x7FFFFFFF
-    with conn.cursor() as cur:
-        cur.execute("SELECT pg_try_advisory_lock(%s)", (key,))
-        acquired = cur.fetchone()[0]
-    if not acquired:
-        raise AlreadyRunning(f"{name}: ya hay otra ejecución activa; saliendo sin hacer cambios")
+from radar_common import (
+    AlreadyRunning,
+    acquire_script_lock,
+    db_config,
+    env_int,
+    load_env_file,
+    month_bounds,
+    month_start_from_string,
+)
 
 
 @dataclass(frozen=True)
@@ -74,37 +69,6 @@ class KeywordHit:
     occurrences: int
 
 
-def load_env_file(path=ENV_PATH):
-    if not path.exists():
-        return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-def env_int(name, default):
-    try:
-        return int(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        return default
-
-
-def db_config(prefix="RADAR"):
-    password = os.getenv(f"{prefix}_DB_PASSWORD")
-    if not password:
-        raise RuntimeError(f"Falta {prefix}_DB_PASSWORD en .env")
-    return {
-        "host": os.getenv(f"{prefix}_DB_HOST", "127.0.0.1"),
-        "port": env_int(f"{prefix}_DB_PORT", 5432),
-        "dbname": os.getenv(f"{prefix}_DB_NAME"),
-        "user": os.getenv(f"{prefix}_DB_USER", "postgres"),
-        "password": password,
-    }
-
-
 def normalize_text(value):
     value = (value or "").strip().casefold()
     value = unicodedata.normalize("NFKD", value)
@@ -116,21 +80,6 @@ def normalize_text(value):
 
 def clean_display(value):
     return re.sub(r"\s+", " ", (value or "").strip())
-
-
-def month_start_from_string(value):
-    if not re.match(r"^\d{4}-\d{2}$", value or ""):
-        raise argparse.ArgumentTypeError("period must use YYYY-MM format")
-    year, month = map(int, value.split("-"))
-    if not 1 <= month <= 12:
-        raise argparse.ArgumentTypeError("month must be between 01 and 12")
-    return date(year, month, 1)
-
-
-def month_bounds(month_start):
-    last_day = calendar.monthrange(month_start.year, month_start.month)[1]
-    next_month = date(month_start.year + (month_start.month // 12), (month_start.month % 12) + 1, 1)
-    return month_start, next_month, last_day
 
 
 def import_required(module_name, package_name=None):
@@ -412,7 +361,7 @@ def merge_hits(hits):
             normalized_canonical_keyword=current.normalized_canonical_keyword or hit.normalized_canonical_keyword,
             keyword_type=current.keyword_type or hit.keyword_type,
             extractor_source=current.extractor_source,
-            score=max(v for v in [current.score, hit.score] if v is not None) if current.score or hit.score else None,
+            score=max(v for v in [current.score, hit.score] if v is not None) if current.score is not None or hit.score is not None else None,
             occurrences=current.occurrences + hit.occurrences,
         )
     return list(merged.values())
@@ -491,7 +440,7 @@ def mark_period(conn, affected_period_id, status, *, dry_run=False):
 
 
 def fetch_news_for_month(conn, month_start, *, limit_news=None, skip_existing=True):
-    start, end, _ = month_bounds(month_start)
+    start, end = month_bounds(month_start)
     query = """
         SELECT id, noticia_hash, fuente, titulo, texto_completo, fecha_publicacion
         FROM radar_raw_noticias r

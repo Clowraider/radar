@@ -15,9 +15,7 @@ Examples:
 """
 
 import argparse
-import os
 import sys
-import zlib
 from pathlib import Path
 
 import psycopg2
@@ -27,49 +25,9 @@ from psycopg2.extras import RealDictCursor, execute_values
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = PROJECT_ROOT / ".env"
 
+sys.path.insert(0, str(PROJECT_ROOT))
 
-class AlreadyRunning(RuntimeError):
-    pass
-
-
-def acquire_script_lock(conn, name):
-    key = zlib.crc32(f"radar_trh:{name}".encode("utf-8")) & 0x7FFFFFFF
-    with conn.cursor() as cur:
-        cur.execute("SELECT pg_try_advisory_lock(%s)", (key,))
-        acquired = cur.fetchone()[0]
-    if not acquired:
-        raise AlreadyRunning(f"{name}: ya hay otra ejecución activa; saliendo sin hacer cambios")
-
-
-def load_env_file(path=ENV_PATH):
-    if not path.exists():
-        return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-def env_int(name, default):
-    try:
-        return int(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        return default
-
-
-def db_config(prefix="RADAR"):
-    password = os.getenv(f"{prefix}_DB_PASSWORD")
-    if not password:
-        raise RuntimeError(f"Falta {prefix}_DB_PASSWORD en .env")
-    return {
-        "host": os.getenv(f"{prefix}_DB_HOST", "127.0.0.1"),
-        "port": env_int(f"{prefix}_DB_PORT", 5432),
-        "dbname": os.getenv(f"{prefix}_DB_NAME"),
-        "user": os.getenv(f"{prefix}_DB_USER", "postgres"),
-        "password": password,
-    }
+from radar_common import AlreadyRunning, acquire_script_lock, db_config, env_int, load_env_file
 
 
 def create_run(conn, *, full, lookback_hours, notes):

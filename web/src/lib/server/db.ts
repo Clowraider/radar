@@ -43,12 +43,17 @@ function createPool() {
 		});
 	}
 
+	const password = process.env.RADAR_DB_PASSWORD;
+	if (!password || password.trim() === "") {
+		throw new Error("Missing RADAR_DB_PASSWORD environment variable");
+	}
+
 	return new Pool({
 		host: process.env.RADAR_DB_HOST || "localhost",
 		port: numberFromEnv(process.env.RADAR_DB_PORT, 5432),
 		database: process.env.RADAR_DB_NAME || "radar_trh",
 		user: process.env.RADAR_DB_USER || "postgres",
-		password: process.env.RADAR_DB_PASSWORD,
+		password,
 		max: numberFromEnv(process.env.RADAR_DB_POOL_MAX, dev ? 4 : 10),
 		idleTimeoutMillis: 30_000,
 	});

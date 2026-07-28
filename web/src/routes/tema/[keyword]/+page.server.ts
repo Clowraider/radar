@@ -28,7 +28,7 @@ type TopicSourceRow = {
 type TopicNewsRow = {
 	id: string | number;
 	title: string;
-	url_original: string;
+	url_original: string | null;
 	fecha_publicacion: Date | string | null;
 	total_occurrences: number;
 };
@@ -67,6 +67,21 @@ function decodeKeyword(value: string) {
 	} catch {
 		return value.trim();
 	}
+}
+
+function validateUrl(value: string | null): string | null {
+	if (!value) return null;
+
+	try {
+		const url = new URL(value);
+		if (url.protocol === "http:" || url.protocol === "https:") {
+			return value;
+		}
+	} catch {
+		// Invalid URL: fall through to return null
+	}
+
+	return null;
 }
 
 export const load: PageServerLoad = async ({ params, url }) => {
@@ -283,7 +298,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		news: newsResult.rows.map((row) => ({
 			id: String(row.id),
 			title: row.title,
-			url: row.url_original,
+			url: validateUrl(row.url_original),
 			publishedAt: toDate(row.fecha_publicacion),
 			totalOccurrences: row.total_occurrences,
 		})),

@@ -111,7 +111,7 @@ def reset_month(conn, month_start):
 
 
 def mark_month_consumed(conn, month_start):
-    """Mark a period as consumed after its aggregate tables have been built."""
+    """Mark processed periods as consumed after their aggregate tables have been built."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -119,6 +119,7 @@ def mark_month_consumed(conn, month_start):
                SET status = %s,
                    updated_at = NOW()
              WHERE month_start = %s
+               AND status IN ('completed', 'processing')
             """,
             (STATUS_CONSUMED, month_start),
         )

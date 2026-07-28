@@ -158,3 +158,22 @@ def test_main_no_periods_exits_without_consuming(connect_mock, _db_config_mock, 
     cur = mock_conn.cursor.return_value
     consume_call = _find_execute_call(cur, "UPDATE radar_affected_periods")
     assert consume_call is None
+
+
+@patch("scripts.build_monthly_aggregates.build_month", side_effect=RuntimeError("build failed"))
+@patch("scripts.build_monthly_aggregates.acquire_script_lock")
+@patch("scripts.build_monthly_aggregates.load_env_file")
+@patch("scripts.build_monthly_aggregates.db_config", return_value={})
+@patch("scripts.build_monthly_aggregates.psycopg2.connect")
+def test_main_build_failure_does_not_mark_consumed(
+    connect_mock, _db_config_mock, _load_env_mock, _lock_mock, _build_month_mock, mock_conn
+):
+    connect_mock.return_value = mock_conn
+
+    with pytest.raises(RuntimeError, match="build failed"):
+        bma.main([])
+
+    cur = mock_conn.cursor.return_value
+    consume_call = _find_execute_call(cur, "UPDATE radar_affected_periods")
+    assert consume_call is None
+    mock_conn.rollback.assert_called()

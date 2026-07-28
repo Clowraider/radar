@@ -116,6 +116,8 @@ def upsert_periods(conn, run_id, periods, *, reason):
             year = EXCLUDED.year,
             month = EXCLUDED.month,
             rows_detected = EXCLUDED.rows_detected,
+            -- Reset any prior status, including 'consumed', so downstream stages
+            -- rebuild aggregates for this month.
             status = 'pending',
             updated_at = NOW()
     """

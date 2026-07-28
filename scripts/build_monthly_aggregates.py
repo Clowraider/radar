@@ -7,9 +7,9 @@ such as "Fuente 1" are a UI/API presentation concern and should be applied only
 when rendering user-facing output.
 
 Modes:
-    --full              build every month with published news
-    --period YYYY-MM    build one month
-    default             build affected periods marked completed
+    --full              build every month with published news; leave period statuses unchanged
+    --period YYYY-MM    build one month and mark it consumed
+    default             build affected periods marked completed and mark them consumed
 """
 
 import argparse
@@ -17,6 +17,10 @@ import sys
 from pathlib import Path
 
 import psycopg2
+
+
+STATUS_COMPLETED = "completed"
+STATUS_CONSUMED = "consumed"
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -80,7 +84,7 @@ def select_months(conn, args):
             )
             return [row[0] for row in cur.fetchall()]
 
-        statuses = ["completed"]
+        statuses = [STATUS_COMPLETED]
         if args.include_processing:
             statuses.append("processing")
         cur.execute(
@@ -104,6 +108,20 @@ def reset_month(conn, month_start):
             "radar_monthly_overview",
         ]:
             cur.execute(f"DELETE FROM {table} WHERE month_start = %s", (month_start,))
+
+
+def mark_month_consumed(conn, month_start):
+    """Mark a period as consumed after its aggregate tables have been built."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE radar_affected_periods
+               SET status = %s,
+                   updated_at = NOW()
+             WHERE month_start = %s
+            """,
+            (STATUS_CONSUMED, month_start),
+        )
 
 
 def insert_daily_activity(conn, month_start, run_id):
@@ -318,12 +336,23 @@ def build_month(conn, month_start, run_id):
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Build Radar TRH monthly UI/API aggregates")
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--full", action="store_true", help="build every month with published news")
-    mode.add_argument("--period", type=month_start_from_string, help="build one month in YYYY-MM format")
+    mode.add_argument(
+        "--full",
+        action="store_true",
+        help="build every month with published news; leave radar_affected_periods statuses unchanged",
+    )
+    mode.add_argument(
+        "--period",
+        type=month_start_from_string,
+        help="build one month in YYYY-MM format and mark it consumed",
+    )
     parser.add_argument(
         "--include-processing",
         action="store_true",
-        help="default mode also includes affected periods still marked processing",
+        help=(
+            "default mode also includes affected periods still marked processing; "
+            "all selected periods are marked consumed on success"
+        ),
     )
     parser.add_argument("--notes", help="optional note stored on the processing run")
     return parser.parse_args(argv)
@@ -352,6 +381,11 @@ def main(argv=None):
         print(f"periods selected: {len(months)}")
         for month_start in months:
             result = build_month(conn, month_start, run_id)
+            # Full rebuilds everything independently of the period tracking table;
+            # leave existing statuses untouched so the normal pipeline can still
+            # detect and consume completed periods incrementally.
+            if not args.full:
+                mark_month_consumed(conn, month_start)
             conn.commit()
             processed += 1
             print(

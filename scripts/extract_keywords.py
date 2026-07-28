@@ -361,7 +361,7 @@ def merge_hits(hits):
             normalized_canonical_keyword=current.normalized_canonical_keyword or hit.normalized_canonical_keyword,
             keyword_type=current.keyword_type or hit.keyword_type,
             extractor_source=current.extractor_source,
-            score=max(v for v in [current.score, hit.score] if v is not None) if current.score or hit.score else None,
+            score=max(v for v in [current.score, hit.score] if v is not None) if current.score is not None or hit.score is not None else None,
             occurrences=current.occurrences + hit.occurrences,
         )
     return list(merged.values())

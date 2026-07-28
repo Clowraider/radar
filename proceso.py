@@ -14,19 +14,24 @@ The whole chain is protected by a PostgreSQL advisory lock, so a second
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
-import zlib
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import psycopg2
 
+from radar_common import (
+    AlreadyRunning,
+    acquire_script_lock,
+    advisory_lock_key,
+    db_config,
+    env_int,
+    load_env_file,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-ENV_PATH = PROJECT_ROOT / ".env"
 LOCK_NAME = "proceso"
 
 PROCESSING_CHAIN = (
@@ -35,59 +40,6 @@ PROCESSING_CHAIN = (
     ("extract keywords", "scripts/extract_keywords.py"),
     ("build monthly aggregates", "scripts/build_monthly_aggregates.py"),
 )
-
-
-class AlreadyRunning(RuntimeError):
-    pass
-
-
-def load_env_file(path: Path = ENV_PATH) -> None:
-    if not path.exists():
-        return
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-def env_int(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        return default
-
-
-def db_config(prefix: str) -> dict[str, Any]:
-    password = os.getenv(f"{prefix}_DB_PASSWORD")
-    if not password:
-        raise RuntimeError(f"Falta {prefix}_DB_PASSWORD en .env")
-
-    return {
-        "host": os.getenv(f"{prefix}_DB_HOST", "127.0.0.1"),
-        "port": env_int(f"{prefix}_DB_PORT", 5432),
-        "dbname": os.getenv(f"{prefix}_DB_NAME"),
-        "user": os.getenv(f"{prefix}_DB_USER", "postgres"),
-        "password": password,
-    }
-
-
-def advisory_lock_key(name: str) -> int:
-    return zlib.crc32(f"radar_trh:{name}".encode("utf-8")) & 0x7FFFFFFF
-
-
-def acquire_process_lock(conn, name: str = LOCK_NAME) -> int:
-    key = advisory_lock_key(name)
-    with conn.cursor() as cur:
-        cur.execute("SELECT pg_try_advisory_lock(%s)", (key,))
-        acquired = cur.fetchone()[0]
-
-    if not acquired:
-        raise AlreadyRunning(f"{name}: ya hay otra ejecución activa; saliendo sin hacer cambios")
-
-    return key
 
 
 def release_process_lock(conn, key: int) -> None:
@@ -124,7 +76,7 @@ def main() -> int:
 
     try:
         conn = psycopg2.connect(**db_config("RADAR"))
-        lock_key = acquire_process_lock(conn)
+        lock_key = acquire_script_lock(conn, LOCK_NAME)
         log("proceso.py start")
 
         for label, script_path in PROCESSING_CHAIN:

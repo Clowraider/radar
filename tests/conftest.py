@@ -34,12 +34,13 @@ SCHEMA_FILES = [
     "004_create_keyword_processing_state.sql",
     "005_create_monthly_aggregates.sql",
     "006_alter_affected_periods_add_consumed.sql",
+    "007_create_source_aliases.sql",
 ]
 
 TEST_DB_CONFIG = {
     "host": os.environ.get("RADAR_DB_HOST", "192.168.0.106"),
     "port": int(os.environ.get("RADAR_DB_PORT", "5432")),
-    "dbname": "radar_test",
+    "dbname": os.environ.get("RADAR_DB_NAME", "radar_test"),
     "user": os.environ.get("RADAR_DB_USER", "postgres"),
     "password": os.environ.get("RADAR_DB_PASSWORD", ""),
 }
@@ -55,6 +56,7 @@ RADAR_TABLES = [
     "radar_news_keywords",
     "radar_processing_runs",
     "radar_raw_noticias",
+    "radar_source_aliases",
     "radar_source_keyword_stats",
     "radar_source_monthly_stats",
 ]

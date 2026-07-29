@@ -2,9 +2,10 @@
 """
 Build Radar TRH monthly MVP aggregates for future UI/API.
 
-These DB aggregates intentionally keep real source/media names. Source aliases
-such as "Fuente 1" are a UI/API presentation concern and should be applied only
-when rendering user-facing output.
+These DB aggregates intentionally keep real source/media names. The pipeline
+also maintains a stable source_name -> alias mapping in radar_source_aliases so
+the Web UI can display anonymous aliases such as "Fuente 1" without scanning
+raw news tables.
 
 Modes:
     --full              build every month with published news; leave period statuses unchanged
@@ -334,6 +335,52 @@ def build_month(conn, month_start, run_id):
     }
 
 
+def ensure_source_aliases(conn, month_starts):
+    """Assign stable aliases to every distinct source_media seen in this run.
+
+    Existing aliases are preserved; new sources receive the next available
+    "Fuente N" number in deterministic source_name order.
+    """
+    if not month_starts:
+        return 0
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH new_sources AS (
+                SELECT DISTINCT source_media AS source_name
+                FROM radar_source_monthly_stats
+                WHERE month_start = ANY(%s)
+            ),
+            max_existing AS (
+                SELECT COALESCE(
+                    MAX(CAST(REPLACE(alias, 'Fuente ', '') AS INTEGER)),
+                    0
+                ) AS max_num
+                FROM radar_source_aliases
+                WHERE alias LIKE 'Fuente %%'
+            ),
+            to_insert AS (
+                SELECT
+                    ns.source_name,
+                    'Fuente ' || (me.max_num + ROW_NUMBER() OVER (ORDER BY ns.source_name)) AS alias
+                FROM new_sources ns
+                CROSS JOIN max_existing me
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM radar_source_aliases rsa
+                    WHERE rsa.source_name = ns.source_name
+                )
+            )
+            INSERT INTO radar_source_aliases (source_name, alias)
+            SELECT source_name, alias
+            FROM to_insert
+            ORDER BY source_name
+            """,
+            (month_starts,),
+        )
+        return cur.rowcount
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Build Radar TRH monthly UI/API aggregates")
     mode = parser.add_mutually_exclusive_group()
@@ -397,9 +444,10 @@ def main(argv=None, conn=None):
                 f"source_keywords={result['source_keyword_rows']}"
             )
 
+        alias_rows = ensure_source_aliases(conn, months)
         finish_run(conn, run_id, status="completed", rows_detected=processed)
         conn.commit()
-        print(f"monthly aggregates complete | periods={processed}")
+        print(f"monthly aggregates complete | periods={processed} aliases={alias_rows}")
         return processed
     except Exception as exc:
         conn.rollback()

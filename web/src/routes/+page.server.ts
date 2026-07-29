@@ -24,6 +24,7 @@ type DailyRow = {
 
 type SourceRow = {
 	source_media: string;
+	alias: string | null;
 	news_count: number;
 	distinct_keywords: number;
 };
@@ -184,10 +185,15 @@ export const load: PageServerLoad = async ({ url }) => {
 		),
 		query<SourceRow>(
 			`
-        SELECT source_media, news_count, distinct_keywords
-        FROM radar_source_monthly_stats
-        WHERE month_start = $1::date
-        ORDER BY news_count DESC, source_media ASC
+        SELECT
+          s.source_media,
+          COALESCE(a.alias, s.source_media) AS alias,
+          s.news_count,
+          s.distinct_keywords
+        FROM radar_source_monthly_stats s
+        LEFT JOIN radar_source_aliases a ON a.source_name = s.source_media
+        WHERE s.month_start = $1::date
+        ORDER BY s.news_count DESC, s.source_media ASC
         LIMIT 8
       `,
 			[`${selectedMonth}-01`],
@@ -221,8 +227,8 @@ export const load: PageServerLoad = async ({ url }) => {
 			date: toDate(row.activity_date),
 			newsCount: row.news_count,
 		})),
-		sources: sourcesResult.rows.map((row, index) => ({
-			alias: `Fuente ${index + 1}`,
+		sources: sourcesResult.rows.map((row) => ({
+			alias: row.alias,
 			newsCount: row.news_count,
 			distinctKeywords: row.distinct_keywords,
 		})),

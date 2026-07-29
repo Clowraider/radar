@@ -21,9 +21,16 @@ type TopicDailyRow = {
 
 type TopicSourceRow = {
 	source_media: string;
+	alias: string | null;
 	news_count: number;
 	total_occurrences: number;
 };
+
+function aliasToKey(alias: string | null, fallbackIndex: number): string {
+	if (!alias) return `fuente-${fallbackIndex + 1}`;
+	const match = alias.match(/^Fuente (\d+)$/);
+	return match ? `fuente-${match[1]}` : `fuente-${fallbackIndex + 1}`;
+}
 
 type TopicNewsRow = {
 	id: string | number;
@@ -217,13 +224,14 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		query<TopicSourceRow>(
 			`
         SELECT
+          COALESCE(a.alias, nk.source_media) AS alias,
           nk.source_media,
-          COUNT(DISTINCT nk.raw_noticia_id)::int AS news_count,
-          COALESCE(SUM(nk.occurrences), 0)::int AS total_occurrences
-        FROM radar_news_keywords nk
+          nk.news_count,
+          nk.total_occurrences
+        FROM radar_source_keyword_stats nk
+        LEFT JOIN radar_source_aliases a ON a.source_name = nk.source_media
         WHERE ${matchCondition}
-        GROUP BY nk.source_media
-        ORDER BY news_count DESC, total_occurrences DESC, nk.source_media ASC
+        ORDER BY nk.news_count DESC, nk.total_occurrences DESC, nk.source_media ASC
         LIMIT 8
       `,
 			[monthStart, effectiveNormalizedKeyword],
@@ -231,8 +239,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	]);
 
 	const sourceOptions = sourcesResult.rows.map((row, index) => ({
-		key: `fuente-${index + 1}`,
-		alias: `Fuente ${index + 1}`,
+		key: aliasToKey(row.alias, index),
+		alias: row.alias ?? row.source_media,
 		media: row.source_media,
 		newsCount: row.news_count,
 		totalOccurrences: row.total_occurrences,

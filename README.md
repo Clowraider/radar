@@ -1,21 +1,26 @@
 # Radar TRH
 
-Radar TRH es un observatorio visual de agenda mediática derivado de TRH. Usa noticias históricas sincronizadas desde la base de TRH para detectar temas, keywords, fuentes y cambios de agenda por mes.
+- **TRH:** https://trh.com.ar
+- **Radar:** https://radar.trh.com.ar
 
-El proyecto arranca por la capa de datos: primero sincroniza noticias raw, después detecta períodos afectados y finalmente genera keywords/agregados para alimentar una futura API/UI.
+Radar TRH es la primera versión pública del observatorio visual de agenda mediática derivado de TRH. Usa noticias históricas sincronizadas desde la base de TRH para detectar temas, keywords, fuentes y cambios de agenda por mes.
+
+El proyecto arranca por la capa de datos: primero sincroniza noticias raw, después detecta períodos afectados y finalmente genera keywords/agregados para alimentar la web pública.
 
 ## Estado actual
 
 | Área | Estado |
 | --- | --- |
 | Sync raw TRH → Radar | Implementado |
-| Procesamiento incremental | Implementado como base inicial |
+| Procesamiento incremental | Implementado |
 | Keywords canónicas | Implementado con YAML editable |
 | Extracción automática | Implementado con spaCy + YAKE |
-| Agregados mensuales MVP | Implementado con fuentes reales internas |
+| Agregados mensuales MVP | Implementado |
+| Alias de fuentes estables | Implementado en `radar_source_aliases` |
 | Web v0.1 / Radar público | Funcionalmente completo en `web/` |
+| Tests Python | 63 tests (`pytest`) |
+| API / frontend | Implementado con SvelteKit |
 | Clusters | Pendiente para v0.3 |
-| API / frontend | Implementado con SvelteKit para v0.1 |
 
 ## Concepto clave de fechas
 
@@ -31,6 +36,8 @@ Una noticia puede sincronizarse hoy aunque haya sido publicada hace años. Por e
 
 ## Quick path
 
+Como esta es la primera versión pública, no hay migraciones incrementales. La base se crea aplicando el schema completo:
+
 ```bash
 # 1. Activar entorno
 . .venv/bin/activate
@@ -38,17 +45,16 @@ Una noticia puede sincronizarse hoy aunque haya sido publicada hace años. Por e
 # 2. Instalar dependencias
 pip install -r requirements.txt
 
-# 3. Crear DB y schema raw, si todavía no existen
-psql postgres -f db/000_create_database.sql
-psql radar_trh -f db/001_create_radar_raw.sql
+# 3. Crear la base de datos y aplicar el schema completo
+#    (el schema ya incluye tablas, índices, triggers y constraints)
+psql postgres -c "CREATE DATABASE radar_trh;"
+psql radar_trh -f db/schema.sql
 
-# 4. Crear schemas de procesamiento
-psql radar_trh -f db/002_create_processing_tables.sql
-psql radar_trh -f db/003_create_keywords_tables.sql
-psql radar_trh -f db/004_create_keyword_processing_state.sql
-psql radar_trh -f db/005_create_monthly_aggregates.sql
+# 4. Configurar .env (copiar y editar credenciales)
+cp .env.example .env
+# editar .env con los datos de TRH y de la base Radar
 
-# 5. Sync full inicial, si todavía no se hizo
+# 5. Sync full inicial
 python scripts/sync_trh_raw_to_radar.py --full
 
 # 6. Detectar todos los períodos existentes para la primera inicialización
@@ -60,7 +66,7 @@ python scripts/extract_keywords.py --period 2025-05 --reset-period --limit-news 
 # 8. Si el smoke test funciona, procesar todos los períodos pendientes
 python scripts/extract_keywords.py
 
-# 9. Construir agregados mensuales para futura UI/API
+# 9. Construir agregados mensuales
 python scripts/build_monthly_aggregates.py
 
 # 10. Ejecutar la web v0.1 de Radar
@@ -146,18 +152,18 @@ Si `proceso.py` se interrumpe, PostgreSQL libera el lock cuando se cierra la con
 
 ## Fuentes y anonimización
 
-La DB conserva los nombres reales de las fuentes. Esto aplica a raw data, procesamiento y agregados internos.
+La DB interna conserva los nombres reales de las fuentes en las tablas raw y de agregados. La web pública nunca los muestra.
 
-La anonimización es una responsabilidad de la futura UI/API: cuando el usuario vea rankings o comparaciones por fuente, la capa de presentación debe convertir el nombre real a un alias como `Fuente 1`, `Fuente 2`, etc.
+El pipeline crea y mantiene una tabla `radar_source_aliases` que asigna aliases estables del tipo `Fuente 1`, `Fuente 2`, etc. Cada nombre real de fuente recibe un número la primera vez que aparece, y ese número se mantiene estable en todos los meses.
 
 Regla del proyecto:
 
 ```text
 DB / procesamiento interno → fuente real
-UI / salida para usuario   → alias visible
+UI / salida para usuario   → Fuente N (alias estable)
 ```
 
-La configuración de aliases se resolverá en la futura capa UI/API, no en los agregados SQL.
+La asignación corre automáticamente dentro de `scripts/build_monthly_aggregates.py`. Las fuentes nuevas reciben el siguiente número disponible.
 
 ## Sync de noticias
 
@@ -278,7 +284,7 @@ python scripts/extract_keywords.py --full --reset-period
 
 ## Agregados mensuales MVP
 
-Después de keywords, construí los agregados listos para la futura Home/API:
+Después de keywords, construí los agregados listos para la Home/API:
 
 ```bash
 python scripts/build_monthly_aggregates.py
@@ -300,7 +306,7 @@ Tablas generadas:
 - `radar_source_monthly_stats`
 - `radar_source_keyword_stats`
 
-Estas tablas guardan nombres reales de fuente porque son agregados internos de DB. La futura UI/API debe aplicar aliases al renderizar información visible para usuarios.
+Además, `build_monthly_aggregates.py` mantiene `radar_source_aliases` para que los aliases de fuente sean estables en la web.
 
 ## Diccionario canónico
 
@@ -329,30 +335,53 @@ python scripts/extract_keywords.py --full --reset-period
 
 ```text
 db/
-  000_create_database.sql
+  schema.sql                    # schema completo y definitivo
+  000_create_database.sql       # referencia: crear base (no migración)
   001_create_radar_raw.sql
   002_create_processing_tables.sql
   003_create_keywords_tables.sql
   004_create_keyword_processing_state.sql
   005_create_monthly_aggregates.sql
+  006_alter_affected_periods_add_consumed.sql
+  007_create_source_aliases.sql
 
 scripts/
   sync_trh_raw_to_radar.py
   detect_affected_periods.py
   extract_keywords.py
   build_monthly_aggregates.py
+  proceso.py
+  radar_common.py
+
+web/
+  SvelteKit v0.1
+  src/routes/+page.server.ts
+  src/routes/tema/[keyword]/+page.server.ts
 
 config/
   keyword_dictionary.yml
 
-PLAN.md
+tests/
+  pytest suite
+
+.env
+.env.example
 README.md
+PLAN.md
 requirements.txt
+```
+
+## Tests
+
+El proyecto usa `pytest`. Para correr todos los tests:
+
+```bash
+python -m pytest tests/ -v
 ```
 
 ## Próximos pasos
 
-- Ejecutar smoke test real contra la DB Radar.
 - Ajustar `config/keyword_dictionary.yml` con keywords locales reales.
 - Diseñar generación de clusters por mes usando embeddings.
-- Crear API/UI mensual sobre los agregados MVP.
+- Iterar la UI/UX pública sobre los agregados MVP.
+- Agregar CI en el momento que el equipo lo priorice.

@@ -18,7 +18,7 @@ El proyecto arranca por la capa de datos: primero sincroniza noticias raw, despu
 | Agregados mensuales MVP | Implementado |
 | Alias de fuentes estables | Implementado en `radar_source_aliases` |
 | Web v0.1 / Radar público | Funcionalmente completo en `web/` |
-| Tests Python | 63 tests (`pytest`) |
+| Tests Python | 64 tests (`pytest`) |
 | API / frontend | Implementado con SvelteKit |
 | Clusters | Pendiente para v0.3 |
 
@@ -36,7 +36,7 @@ Una noticia puede sincronizarse hoy aunque haya sido publicada hace años. Por e
 
 ## Quick path
 
-Como esta es la primera versión pública, no hay migraciones incrementales. La base se crea aplicando el schema completo:
+Fresh databases should be created from the canonical `db/schema.sql` snapshot. Existing databases must apply the numbered SQL migrations in order; in particular, apply `db/006_alter_affected_periods_add_consumed.sql` before running monthly aggregates on a database created before the `consumed` status was introduced.
 
 ```bash
 # 1. Activar entorno

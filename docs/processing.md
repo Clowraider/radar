@@ -266,10 +266,13 @@ psql radar_trh -f db/002_create_processing_tables.sql
 psql radar_trh -f db/003_create_keywords_tables.sql
 psql radar_trh -f db/004_create_keyword_processing_state.sql
 psql radar_trh -f db/005_create_monthly_aggregates.sql
+psql radar_trh -f db/006_alter_affected_periods_add_consumed.sql
 python scripts/detect_affected_periods.py --full
 python scripts/extract_keywords.py --period 2025-05 --reset-period --limit-news 20
 python scripts/build_monthly_aggregates.py --period 2025-05
 ```
+
+Migration `006` upgrades existing `radar_affected_periods` constraints to allow the `consumed` status written by the monthly aggregate builder. Apply numbered migrations in order when upgrading an existing database.
 
 Si el smoke test funciona, seguir con los períodos pendientes creados por `detect_affected_periods.py --full` y luego construir agregados:
 

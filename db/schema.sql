@@ -95,7 +95,7 @@ CREATE TABLE public.radar_affected_periods (
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     CONSTRAINT radar_affected_periods_month_check CHECK (((month >= 1) AND (month <= 12))),
-    CONSTRAINT radar_affected_periods_status_check CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('processing'::character varying)::text, ('completed'::character varying)::text, ('failed'::character varying)::text, ('skipped'::character varying)::text])))
+    CONSTRAINT radar_affected_periods_status_check CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('processing'::character varying)::text, ('completed'::character varying)::text, ('consumed'::character varying)::text, ('failed'::character varying)::text, ('skipped'::character varying)::text])))
 );
 
 
@@ -1171,5 +1171,4 @@ ALTER TABLE ONLY public.radar_source_monthly_stats
 --
 -- PostgreSQL database dump complete
 --
-
 
